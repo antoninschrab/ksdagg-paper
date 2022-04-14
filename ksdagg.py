@@ -47,12 +47,12 @@ def ksdagg_wild(
     bandwidths_collection = np.array(
         [2**i * median_bandwidth for i in range(l_minus, l_plus + 1)]
     )
-    N = bandwidth_multipliers.shape[0]  # N = 1 + l_plus - l_minus
+    N = 1 + l_plus - l_minus
     weights = create_weights(N, weights_type)
     stein_kernel_matrices_list = stein_kernel_matrices(
         X, score_X, kernel_type, bandwidths_collection, beta_imq
     )
-    return ksdagg_wild_bootstrap_custom(
+    return ksdagg_wild_custom(
         seed,
         stein_kernel_matrices_list,
         weights,
@@ -104,7 +104,7 @@ def ksdagg_wild_custom(seed, stein_kernel_matrices_list, weights, alpha, B1, B2,
         u = (u_max + u_min) / 2
         for i in range(N):
             quantiles[i] = M1_sorted[
-                i, int(np.ceil((B1 + 1) * (1 - u * weights[i]))) - 1
+                i, int(np.ceil(B1 * (1 - u * weights[i]))) - 1
             ]
         P_u = np.sum(np.max(M2 - quantiles, 0) > 0) / B2
         if P_u <= alpha:

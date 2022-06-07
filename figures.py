@@ -35,11 +35,12 @@ names = np.array(
         r"\textsc{KSD} split extra data",
     ]
 )[[0, 3, 2, 1]]
-lines = np.array(["-", "-", "-", "--"])[[0, 3, 2, 1]]
+markers = np.array(["o", "*", "^", "v"])[[0, 3, 2, 1]]
+lines = np.array(["-", "--", "-.", ":"])[[0, 3, 2, 1]]
 sigma = [0, 0.1, 0.2, 0.3, 0.4]
 plt.figure(figsize=(6, 4))
 for i in range(4):
-    plt.plot(sigma, power[i], lines[i], label=names[i])
+    plt.plot(sigma, power[i], linestyle=lines[i], label=names[i], marker=markers[i])
 plt.legend()
 plt.yticks([0, 0.2, 0.4, 0.6, 0.8, 1])
 plt.ylim(-0.05, 1.05)
@@ -55,7 +56,7 @@ plt.legend(
     loc="lower center",
     bbox_to_anchor=(0.5, -0.48),
 )
-plt.savefig("figures/figure_1.png", dpi=300, bbox_inches="tight")
+plt.savefig("figures/figure_1.eps", dpi=300, bbox_inches="tight")
 print("Figure 1 has been saved in figures/.")
 
 
@@ -70,11 +71,12 @@ names = np.array(
         r"\textsc{KSD} split extra data",
     ]
 )[[0, 3, 2, 1]]
-lines = np.array(["-", "-", "-", "--"])[[0, 3, 2, 1]]
+markers = np.array(["o", "*", "^", "v"])[[0, 3, 2, 1]]
+lines = np.array(["-", "--", "-.", ":"])[[0, 3, 2, 1]]
 sigma = [0, 0.01, 0.02, 0.03]
 plt.figure(figsize=(6, 4))
 for i in range(4):
-    plt.plot(sigma, power[i][:4], lines[i], label=names[i])
+    plt.plot(sigma, power[i][:4], linestyle=lines[i], label=names[i], marker=markers[i])
 plt.xticks(sigma)
 plt.yticks([0, 0.2, 0.4, 0.6, 0.8, 1])
 plt.ylim(-0.05, 1.05)
@@ -89,7 +91,7 @@ plt.legend(
     loc="lower center",
     bbox_to_anchor=(0.5, -0.48),
 )
-plt.savefig("figures/figure_2.png", dpi=300, bbox_inches="tight")
+plt.savefig("figures/figure_2.eps", dpi=300, bbox_inches="tight")
 print("Figure 2 has been saved in figures/.")
 
 
@@ -110,11 +112,12 @@ names = np.array(
         r"\textsc{KSD} split extra data",
     ]
 )[[0, 3, 2, 1]]
-lines = np.array(["-", "-", "-", "--"])[[0, 3, 2, 1]]
+markers = np.array(["o", "*", "^", "v"])[[0, 3, 2, 1]]
+lines = np.array(["-", "--", "-.", ":"])[[0, 3, 2, 1]]
 samples = [100, 200, 300, 400, 500]
 plt.figure(figsize=(6, 4))
 for i in range(4):
-    plt.plot(samples, power[i], lines[i], label=names[i])
+    plt.plot(samples, power[i], linestyle=lines[i], label=names[i], marker=markers[i])
 plt.legend()
 plt.xticks(samples)
 plt.yticks([0, 0.2, 0.4, 0.6, 0.8, 1])
@@ -130,7 +133,7 @@ plt.legend(
     loc="lower center",
     bbox_to_anchor=(0.5, -0.48),
 )
-plt.savefig("figures/figure_4.png", dpi=300, bbox_inches="tight")
+plt.savefig("figures/figure_4.eps", dpi=300, bbox_inches="tight")
 print("Figure 4 has been saved in figures/.")
 
 

@@ -1,4 +1,4 @@
-# Code for KSDAgg: a KSD aggregated goodness-of-fit test
+# Code for KSDAgg: KSD Aggregated Goodness-of-fit Test
 
 This GitHub repository contains the code for the reproducible experiments presented in our paper 
 [KSD Aggregated Goodness-of-fit Test](https://arxiv.org/pdf/2202.00824.pdf):
@@ -95,6 +95,10 @@ For the MNIST Normalizing Flow experiment, we use in [generate_data_nf.py](gener
 as part of the [UvA Deep Learning Tutorials](https://uvadlc-notebooks.readthedocs.io/en/latest/index.html)
 under the MIT License.
 
+## KSDAggInc
+
+For a computationally efficient version of KSDAgg which can run in linear time, check out our paper [Efficient Aggregated Kernel Tests using Incomplete U-statistics](https://arxiv.org/pdf/2206.09194.pdf) and its implementation available on the [agginc-paper](https://github.com/antoninschrab/agginc-paper) repository.
+
 ## Author
 
 [Antonin Schrab](https://antoninschrab.github.io)
@@ -103,23 +107,17 @@ Centre for Artificial Intelligence, Department of Computer Science, University C
 
 Gatsby Computational Neuroscience Unit, University College London
 
-Inria, Lille - Nord Europe research centre and Inria London Programme
+Inria London
 
 ## Bibtex
 
 ```
-@unpublished{schrab2022ksd,
-    title={{KSD} Aggregated Goodness-of-fit Test},
-    author={Antonin Schrab and Benjamin Guedj and Arthur Gretton},
-    year={2022},
-    note = "Submitted.",
-    abstract = {We investigate properties of goodness-of-fit tests based on the Kernel Stein Discrepancy (KSD). We introduce a strategy to construct a test, called KSDAgg, which aggregates multiple tests with different kernels. KSDAgg avoids splitting the data to perform kernel selection (which leads to a loss in test power), and rather maximises the test power over a collection of kernels. We provide theoretical guarantees on the power of KSDAgg: we show it achieves the smallest uniform separation rate of the collection, up to a logarithmic term. KSDAgg can be computed exactly in practice as it relies either on a parametric bootstrap or on a wild bootstrap to estimate the quantiles and the level corrections. In particular, for the crucial choice of bandwidth of a fixed kernel, it avoids resorting to arbitrary heuristics (such as median or standard deviation) or to data splitting. We find on both synthetic and real-world data that KSDAgg outperforms other state-of-the-art adaptive KSD-based goodness-of-fit testing procedures.},
-    url = {https://arxiv.org/abs/2202.00824},
-    url_PDF = {https://arxiv.org/pdf/2202.00824.pdf},
-    url_Code = {https://github.com/antoninschrab/ksdagg-paper},
-    eprint={2202.00824},
-    archivePrefix={arXiv},
-    primaryClass={stat.ML}
+@inproceedings{schrab2022ksd,
+  title = {{KSD} {A}ggregated Goodness-of-fit Test},
+  author = {Antonin Schrab and Benjamin Guedj and Arthur Gretton},
+  booktitle = {Advances in Neural Information Processing Systems 35: Annual Conference
+               on Neural Information Processing Systems 2022, NeurIPS 2022},
+  year      = {2022},
 }
 ```
 

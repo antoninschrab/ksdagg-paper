@@ -10,7 +10,8 @@ Results are saved as dataframes in the directory results/.
 
 from kernel import stein_kernel_matrices, ratio_ksd_stdev
 from ksd_single import ksd_parametric
-from ksdagg import ksdagg_parametric
+from ksd_aggregated import ksdagg_parametric
+from ksdagg import ksdagg
 from pathlib import Path
 import numpy as np
 import pandas as pd
@@ -51,6 +52,7 @@ alpha = 0.05
 number_samples = 500
 perturbations = [0, 0.1, 0.2, 0.3, 0.4]
 repetitions = 200
+ksdagg_power = np.zeros(len(perturbations))
 for s in range(len(perturbations)):
     perturbation = perturbations[s]
     k_p = 5
@@ -80,6 +82,7 @@ for s in range(len(perturbations)):
         print("Starting s =", s + 1, "/", len(perturbations))
         print("perturbation", perturbation)
         print("bandwidth", median_bandwidth)
+    ksdagg_param_results = np.zeros(repetitions)
     ksdagg_results = np.zeros(repetitions)
     median_results = np.zeros(repetitions)
     split_results = np.zeros(repetitions)
@@ -89,9 +92,23 @@ for s in range(len(perturbations)):
         score_X = score_X_rep[r]
         X_extra = X_rep[r + 1]
         score_X_extra = score_X_rep[r + 1]
-
+        
         # KSDAgg
-        ksdagg_results[r] = ksdagg_parametric(
+        ksdagg_results[r] = ksdagg(
+            X, 
+            score_X,
+            kernel="imq",
+            number_bandwidths=10,
+            weights_type="uniform", 
+            approx_type="wild bootstrap",
+            B1=2000, 
+            B2=2000, 
+            B3=50,
+            seed=42,
+        )
+
+        # KSDAgg parametric
+        ksdagg_param_results[r] = ksdagg_parametric(
             X,
             score_X,
             alpha,
@@ -178,11 +195,12 @@ for s in range(len(perturbations)):
             )
             t = time.time()
     power_level = (
-        np.mean(ksdagg_results),
+        np.mean(ksdagg_param_results),
         np.mean(median_results),
         np.mean(split_results),
         np.mean(split_extra_data_results),
     )
+    ksdagg_power[s] = np.mean(ksdagg_results)
     if verbose:
         for i in range(len(power_level)):
             print(perturbation, test_names[i], power_level[i])
@@ -200,6 +218,10 @@ index = pd.MultiIndex.from_tuples(index_vals, names=index_names)
 results_df = pd.Series(results, index=index).to_frame("power/level")
 results_df.reset_index().to_csv("results/results_gamma.csv")
 results_df.to_pickle("results/results_gamma.pkl")
+    
+# save numpy array
+np.save("results/ksdagg_gamma.npy", ksdagg_power.reshape(1, -1))
 
 if verbose:
     print("Dataframes for Gamma experiment have been saved in results/.")
+

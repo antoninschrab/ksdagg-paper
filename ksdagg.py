@@ -3,108 +3,226 @@ Functions for computing KSDAgg test for a collection of kernels
 using either a wild bootstrap or a parametic bootstrap.
 """
 
-from kernel import stein_kernel_matrices, compute_median_bandwidth, compute_ksd
 import numpy as np
+import scipy.spatial
 
 
-def ksdagg_wild(
-    seed,
+def ksdagg(
     X,
     score_X,
-    alpha,
-    beta_imq,
-    kernel_type,
-    weights_type,
-    l_minus,
-    l_plus,
-    B1,
-    B2,
-    B3,
+    alpha=0.05,
+    number_bandwidths=10,
+    weights_type="uniform", 
+    approx_type="wild bootstrap",
+    kernel="imq",
+    B1=2000, 
+    B2=2000, 
+    B3=50,
+    seed=42,
+    return_dictionary=False,
+    bandwidths=None,
 ):
     """
-    Compute KSDAgg using a wild bootstrap using bandwidths
-    2 ** i * median_bandwidth for i = l_minus,...,l_plus.
-    inputs: seed: non-negative integer
-            X: (m,d) array of samples (m d-dimensional points)
-            score_X: (m,d) array of score values for X
-            alpha: real number in (0,1) (level of the test)
-            beta_imq: parameter beta in (0,1) for the IMQ kernel
-            kernel_type: "imq"
-            weights_type: "uniform", "decreasing", "increasing" or "centred"
-                see Section 5.1 of MMD Aggregated Two-Sample Test (Schrab et al., 2021)
-            l_minus: integer for bandwidth collection
-            l_plus: integer for bandwidth collection
-            B1: number of simulated test statistics to estimate the quantiles
-            B2: number of simulated test statistics to estimate the level
-            B3: number of iterations for the bisection method
-    output: result of KSDAgg (1 for "REJECT H_0" and 0 for "FAIL TO REJECT H_0")
+    Goodness-of-fit KSDAgg test. 
+    
+    Given data and its score under the model, 
+    return 0 if the test fails to reject the null (i.e. fits the data), 
+    or return 1 if the test rejects the null (i.e. does not fit the data).
+    
+    Parameters
+    ----------
+    X : array_like
+        The shape of X must be of the form (m, d) where m is the number
+        of samples and d is the dimension.
+    score_X: array_like
+        The shape of score_X must be the same as the shape of X.
+    alpha: scalar
+        The value of alpha must be between 0 and 1.
+    number_bandwidths: int
+        The number of bandwidths to include in the collection.
+    weights_type: str
+        Must be "uniform", or "centred", or "increasing", or "decreasing".
+    approx_type: str
+        Must be "wild bootstrap" or "parametric".
+        Note that the required type of B1 and B2 depends on approx_type.
+    kernel: str
+        The value of kernel must be "imq".
+    B1: int or array_like
+        If approx_type is "wild bootstrap", then B1 should be an integer which corresponds 
+        to the number of wild bootstrap samples to approximate the quantiles.
+        If approx_type is "parametric", then B1 should be an array of shape (B1int, number_bandwidths)
+        consisting of B1int KSD values computed under parametric bootstrap for number_bandwidths bandwidths.
+        It is used to approximate the quantiles.
+        Note that number_bandwidths is overwritten to be the second dimension of B1.
+    B2: int or array_like
+        If approx_type is "wild bootstrap", then B2 should be an integer which corresponds 
+        to the number of wild bootstrap samples to approximate the level correction.
+        If approx_type is "parametric, then B2 should be an array of shape (B2int, number_bandwidths)
+        consisting of B2int KSD values computed under parametric bootstrap for number_bandwidths bandwidths.
+        It is used to approximate the level correction.
+        Note that number_bandwidths is overwritten to be the second dimension of B2.
+    B3: int
+        Number of steps of bissection method to perform to estimate the level correction.
+    seed: int 
+        Random seed used for the randomness of the Rademacher variables when approx_type is "wild bootstrap.
+    return_dictionary: bool
+        If true, a dictionary is returned containing for each single test: the test output, the kernel,
+        the bandwidth, the KSD value, the KSD quantile value, the p-value and the p-value threshold value.
+    bandwidths: array_like or None
+        If bandwidths is None, the collection of bandwidths is computed automatically.
+        If bandwidths is array_like of one dimension, the provided collection is used instead.
+        Note that number_bandwidths is overwritten by the length of bandwidths.
+        
+    Returns
+    -------
+    output : int
+        0 if the aggregated KSDAgg test fails to reject the null (i.e. fits the data)
+        1 if the aggregated KSDAgg test rejects the null (i.e. does not fit the data)
+    dictionary: dict
+        Returned only if return_dictionary is True.
+        Dictionary containing the overall output of the KSDAgg test, and for each single test: 
+        the test output, the kernel, the bandwidth, the KSD value, the KSD quantile value, 
+        the p-value and the p-value threshold value.
+    
+    Examples
+    --------
+    >>> perturbation = 0.5
+    >>> rs = np.random.RandomState(0)
+    >>> X = rs.gamma(5 + perturbation, 5, (500, 1))
+    >>> score_gamma = lambda x, k, theta : (k - 1) / x - 1 / theta
+    >>> score_X = score_gamma(X, 5, 5)
+    >>> output = ksdagg(X, score_X)
+    >>> output, dictionary = ksdagg(X, score_X, return_dictionary=True)
+    >>> output
+    1
+    >>> dictionary
+    {'KSDAgg aggregated test reject': True,
+     'Single test 1': {'Reject': False,
+      'Kernel': 'imq',
+      'Bandwidth': 1.0,
+      'KSD': 131.51170316873277,
+      'KSD quantile': 300.758422752927,
+      'p-value': 0.095952023988006,
+      'p-value threshold': 0.005197401299350267},
+      ...
+    }
     """
+
+    # Assertions
     m = X.shape[0]
-    assert m >= 2
-    assert 0 < alpha and alpha < 1
-    assert l_minus <= l_plus
-    median_bandwidth = compute_median_bandwidth(seed, X)
-    bandwidths_collection = np.array(
-        [2**i * median_bandwidth for i in range(l_minus, l_plus + 1)]
-    )
-    N = 1 + l_plus - l_minus
-    weights = create_weights(N, weights_type)
-    stein_kernel_matrices_list = stein_kernel_matrices(
-        X, score_X, kernel_type, bandwidths_collection, beta_imq
-    )
-    return ksdagg_wild_custom(
-        seed,
-        stein_kernel_matrices_list,
-        weights,
-        alpha,
-        B1,
-        B2,
-        B3,
-    )
-
-
-def ksdagg_wild_custom(seed, stein_kernel_matrices_list, weights, alpha, B1, B2, B3):
-    """
-    Compute KSDAgg using a wild bootstrap with custom kernel matrices and weights.
-    inputs: seed: non-negative integer
-            stein_kernel_matrices_list: list of N stein kernel matrices
-            weights: (N,) array consisting of positive entries summing to 1
-            alpha: real number in (0,1) (level of the test)
-            B1: number of simulated test statistics to estimate the quantiles
-            B2: number of simulated test statistics to estimate the level
-            B3: number of iterations for the bisection method
-    output: result of KSDAgg (1 for "REJECT H_0" and 0 for "FAIL TO REJECT H_0")
-    """
-    m = stein_kernel_matrices_list[0].shape[0]
-    N = len(stein_kernel_matrices_list)
-    assert len(stein_kernel_matrices_list) == weights.shape[0]
-    assert m >= 2
-    assert 0 < alpha and alpha < 1
+    assert m >= 2 and X.shape == score_X.shape
+    if approx_type == "wild bootstrap":
+        assert B1 > 0 and B2 > 0 and type(B1) == type(B2) == int
+    elif approx_type == "parametric":
+        assert type(B1) == type(B2) == np.ndarray
+        B1_parametric = B1
+        B2_parametric = B2
+        assert B1_parametric.shape[0] == B2_parametric.shape[0]
+        B1 = B1_parametric.shape[1]
+        B2 = B2_parametric.shape[1]
+    else:
+        raise ValueError("approx_type must be either 'wild bootstrap' or 'parametric'.")
+    assert 0 < alpha  and alpha < 1
+    assert kernel in ("imq", )
+    assert number_bandwidths > 1 and type(number_bandwidths) == int
+    assert weights_type in ("uniform", "decreasing", "increasing", "centred")
+    assert B3 > 0 and type(B3) == int
+    
+    if type(bandwidths) == np.ndarray:
+        assert bandwidths.ndim == 1
+        number_bandwidths = len(bandwidths)
+        if approx_type == "parametric":
+            assert B1_parametric.shape[0] == B2_parametric.shape[0] == len(bandwidths)
+    else:
+        # Collection of bandwidths 
+        max_samples = 500
+        distances = scipy.spatial.distance.pdist(X[:max_samples], "euclidean")  
+        distances = distances[distances > 0]
+        lambda_min = 1
+        lambda_max = np.maximum(np.max(distances), 2)
+        power = (lambda_max / lambda_min) ** (1 / (number_bandwidths - 1))
+        bandwidths = np.array([power ** i * lambda_min / X.shape[1] for i in range(number_bandwidths)])
+    
+    # Weights 
+    weights = create_weights(number_bandwidths, weights_type)
 
     # Step 1: compute all simulated KSD estimates efficiently
-    M = np.zeros((N, B1 + B2 + 1))
-    rs = np.random.RandomState(seed)
-    R = rs.choice([1.0, -1.0], size=(B1 + B2 + 1, m))  # (B1+B2+1, m) Rademacher
-    R[B1] = np.ones(m)
-    R = R.transpose()  # (m, B1+B2+1)
-    for i in range(N):
-        H = stein_kernel_matrices_list[i]
-        np.fill_diagonal(H, 0)
-        # (B1+B2+1, ) wild bootstrap KSD estimates
-        M[i] = np.sum(R * (H @ R), 0) / (m * (m - 1))
-    KSD_original = M[:, B1]
-    M1_sorted = np.sort(M[:, :B1])  # (N, B1)
-    M2 = M[:, B1 + 1 :]  # (N, B2)
-
-    # Step 2: compute u_alpha using the bisection method
-    quantiles = np.zeros((N, 1))  # (1-u*w_lambda)-quantiles for the N bandwidths
+    if approx_type == "wild bootstrap":
+        M = np.zeros((number_bandwidths, B1 + B2 + 1))
+        rs = np.random.RandomState(seed)
+        R = rs.choice([1.0, -1.0], size=(B1 + B2 + 1, m))  # (B1+B2+1, m) Rademacher
+        R[B1] = np.ones(m)
+        R = R.transpose()  # (m, B1+B2+1)
+        # IMQ kernel
+        beta_imq = 0.5
+        p = X.shape[1]
+        norms = np.sum(X ** 2, -1)
+        dists = -2 * X @ X.T + np.expand_dims(norms, 1) + np.expand_dims(norms, 0)
+        diffs = np.expand_dims(np.sum(X * score_X, -1), 1) - (X @ score_X.T)
+        diffs = diffs + diffs.T
+        for i in range(number_bandwidths):
+            bandwidth = bandwidths[i]
+            g = 1 / bandwidth ** 2
+            res = 1 + g * dists
+            kxy = res ** (-beta_imq)
+            dkxy = 2 * beta_imq * g * (res) ** (-beta_imq - 1) * diffs
+            d2kxy = 2 * (
+                beta_imq * g * (res) ** (-beta_imq - 1) * p
+                - 2
+                * beta_imq
+                * (beta_imq + 1)
+                * g ** 2
+                * dists
+                * res ** (-beta_imq - 2)
+            )
+            H = score_X @ score_X.T * kxy + dkxy + d2kxy
+            np.fill_diagonal(H, 0)
+            M[i] = np.sum(R * (H @ R), 0) # (B1+B2+1, ) wild bootstrap KSD estimates
+        KSD_original = M[:, B1]
+        M1_sorted = np.sort(M[:, :B1 + 1])  # (number_bandwidths, B1+1)
+        M2 = M[:, B1 + 1:]  # (number_bandwidths, B2)
+    elif approx_type == "parametric":
+        # IMQ kernel
+        beta_imq = 0.5
+        p = X.shape[1]
+        norms = np.sum(X ** 2, -1)
+        dists = -2 * X @ X.T + np.expand_dims(norms, 1) + np.expand_dims(norms, 0)
+        diffs = np.expand_dims(np.sum(X * score_X, -1), 1) - (X @ score_X.T)
+        diffs = diffs + diffs.T
+        KSD_original = np.zeros((number_bandwidths, ))
+        for i in range(number_bandwidths):
+            bandwidth = bandwidths[i]
+            g = 1 / bandwidth ** 2
+            res = 1 + g * dists
+            kxy = res ** (-beta_imq)
+            dkxy = 2 * beta_imq * g * (res) ** (-beta_imq - 1) * diffs
+            d2kxy = 2 * (
+                beta_imq * g * (res) ** (-beta_imq - 1) * p
+                - 2
+                * beta_imq
+                * (beta_imq + 1)
+                * g ** 2
+                * dists
+                * res ** (-beta_imq - 2)
+            )
+            H = score_X @ score_X.T * kxy + dkxy + d2kxy
+            np.fill_diagonal(H, 0)
+            r = np.ones(m)
+            KSD_original[i] = r @ H @ r
+        M1 = np.concatenate((B1_parametric, KSD_original.reshape(-1, 1)), axis=1) # (number_bandwidths, B1+1)
+        M1_sorted = np.sort(M1)  # (number_bandwidths, B1+1)
+        M2 = B2_parametric  # (number_bandwidths, B2)
+        
+    # Step 2: compute u_alpha_hat using the bisection method
+    quantiles = np.zeros((number_bandwidths, 1))  # (1-u*w_lambda)-quantiles for the N bandwidths
     u_min = 0
     u_max = np.min(1 / weights)
-    for _ in range(B3):
+    for _ in range(B3): 
         u = (u_max + u_min) / 2
-        for i in range(N):
+        for i in range(number_bandwidths):
             quantiles[i] = M1_sorted[
-                i, int(np.ceil(B1 * (1 - u * weights[i]))) - 1
+                i, 
+                int(np.ceil((B1 + 1) * (1 - u * weights[i]))) - 1
             ]
         P_u = np.sum(np.max(M2 - quantiles, 0) > 0) / B2
         if P_u <= alpha:
@@ -112,119 +230,49 @@ def ksdagg_wild_custom(seed, stein_kernel_matrices_list, weights, alpha, B1, B2,
         else:
             u_max = u
     u = u_min
-
+    for i in range(number_bandwidths):
+        quantiles[i] = M1_sorted[
+            i, 
+            int(np.ceil((B1 + 1) * (1 - u * weights[i]))) - 1
+        ]
+        
     # Step 3: output test result
-    for i in range(N):
-        if KSD_original[i] > M1_sorted[i, int(np.ceil(B1 * (1 - u * weights[i]))) - 1]:
-            return 1
-    return 0
+    p_vals = np.mean((M1_sorted - KSD_original.reshape(-1, 1) >= 0), -1)
+    thresholds = u * weights
+    # reject if p_val <= threshold
+    reject_p_vals = p_vals <= thresholds
 
+    ksd_vals = KSD_original
+    quantiles = quantiles.reshape(-1)
+    # reject if ksd_val <= quantile
+    reject_ksd_vals = ksd_vals > quantiles
 
-def ksdagg_parametric(
-    X,
-    score_X,
-    alpha,
-    beta_imq,
-    kernel_type,
-    weights_type,
-    l_minus,
-    l_plus,
-    bandwidth_reference,
-    B1_parametric,
-    B2_parametric,
-    B3,
-):
-    """
-    Compute KSDAgg using a parametric bootstrap using bandwidths
-    2 ** i * median_bandwidth for i = l_minus,...,l_plus.
-    inputs: seed: non-negative integer
-            X: (m,d) array of samples (m d-dimensional points)
-            score_X: (m,d) array of score values for X
-            alpha: real number in (0,1) (level of the test)
-            beta_imq: parameter beta in (0,1) for the IMQ kernel
-            kernel_type: "imq"
-            weights_type: "uniform", "decreasing", "increasing" or "centred"
-                see Section 5.1 of MMD Aggregated Two-Sample Test (Schrab et al., 2021)
-            l_minus: integer for bandwidth collection
-            l_plus: integer for bandwidth collection
-            bandwidth_reference: non-negative number
-                (if 0 then median bandwidth is computed)
-            B1_parametric: (N, B1) array of ksd values computed with N bandwidths
-                using samples from the model
-            B2_parametric: (N, B2) array of ksd values computed with N bandwidths
-                using samples from the model
-            B3: number of iterations for the bisection method
-    output: result of KSDAgg (1 for "REJECT H_0" and 0 for "FAIL TO REJECT H_0")
-    """
-    assert bandwidth_reference >= 0
-    if bandwidth_reference == 0:
-        bandwidth_reference = compute_median_bandwidth(seed=0, X=X)
-    bandwidths_collection = np.array(
-        [2**i * bandwidth_reference for i in range(l_minus, l_plus + 1)]
-    )
-    N = bandwidths_collection.shape[0]  # N = 1 + l_plus - l_minus
-    weights = create_weights(N, weights_type)
-    ksd_values = compute_ksd(
-        X,
-        score_X,
-        kernel_type,
-        bandwidths_collection,
-        beta_imq,
-    )
-    return ksdagg_parametric_custom(
-        ksd_values,
-        alpha,
-        weights,
-        B1_parametric,
-        B2_parametric,
-        B3,
-    )
+    # assert both rejection methods are equivalent
+    np.testing.assert_array_equal(reject_p_vals, reject_ksd_vals)
 
+    # create rejection dictionary 
+    reject_dictionary = {}
+    reject_dictionary["KSDAgg aggregated test reject"] = False
+    for i in range(number_bandwidths):
+        index = "Single test " + str(i + 1)
+        reject_dictionary[index] = {}
+        reject_dictionary[index]["Reject"] = reject_p_vals[i]
+        reject_dictionary[index]["Kernel"] = kernel
+        reject_dictionary[index]["Bandwidth"] = bandwidths[i]
+        reject_dictionary[index]["KSD"] = ksd_vals[i]
+        reject_dictionary[index]["KSD quantile"] = quantiles[i]
+        reject_dictionary[index]["p-value"] = p_vals[i]
+        reject_dictionary[index]["p-value threshold"] = thresholds[i]
+        # Aggregated test rejects if one single test rejects
+        reject_dictionary["KSDAgg aggregated test reject"] = any((
+            reject_dictionary["KSDAgg aggregated test reject"], 
+            reject_p_vals[i]
+        ))
 
-def ksdagg_parametric_custom(
-    ksd_values,
-    alpha,
-    weights,
-    B1_parametric,
-    B2_parametric,
-    B3,
-):
-    """
-    Compute KSDAgg using a parametric bootstrap with custom kernel matrices and weights.
-    inputs: ksd_values: (N,) array consisting of KSD values
-                for N bandwidths for inputs X and score_X
-            alpha: real number in (0,1) (level of the test)
-            weights: (N,) array consisting of positive entries summing to 1
-            B1_parametric: (N, B1) array of ksd values computed with N bandwidths
-                using samples from the model
-            B2_parametric: (N, B2) array of ksd values computed with N bandwidths
-                using samples from the model
-            B3: number of iterations for the bisection method
-    output: result of KSDAgg (1 for "REJECT H_0" and 0 for "FAIL TO REJECT H_0")
-    """
-    B1 = B1_parametric.shape[1]
-    B2 = B2_parametric.shape[1]
-    N = ksd_values.shape[0]
-    quantiles = np.zeros((N, 1))  # (1-u*w_lambda)-quantiles for the N bandwidths
-    u_min = 0
-    u_max = np.min(1 / weights)
-    for _ in range(B3):
-        u = (u_max + u_min) / 2
-        for i in range(N):
-            quantiles[i] = B1_parametric[i, int(np.ceil(B1 * (1 - u * weights[i]))) - 1]
-        P_u = np.mean(np.max(B2_parametric - quantiles, 0) > 0)
-        if P_u <= alpha:
-            u_min = u
-        else:
-            u_max = u
-    u = u_min
-    for i in range(N):
-        if (
-            ksd_values[i]
-            > B1_parametric[i, int(np.ceil(B1 * (1 - u * weights[i]))) - 1]
-        ):
-            return 1
-    return 0
+    if return_dictionary:
+        return int(reject_dictionary["KSDAgg aggregated test reject"]), reject_dictionary
+    else:
+        return int(reject_dictionary["KSDAgg aggregated test reject"])
 
 
 def create_weights(N, weights_type):

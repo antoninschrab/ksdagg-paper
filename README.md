@@ -1,4 +1,4 @@
-# Code for KSDAgg: KSD Aggregated Goodness-of-fit Test
+Code for KSDAgg: KSD Aggregated Goodness-of-fit Test
 
 This GitHub repository contains the code for the reproducible experiments presented in our paper 
 [KSD Aggregated Goodness-of-fit Test](https://arxiv.org/pdf/2202.00824.pdf):
@@ -9,12 +9,10 @@ This GitHub repository contains the code for the reproducible experiments presen
 We provide the code to run the experiments to generate Figures 1-4 and Table 1 from our paper, 
 those can be found in [figures](figures). 
 
-Our aggregated test [KSDAgg](https://arxiv.org/pdf/2202.00824.pdf#page=4) is implemented in [ksdagg.py](ksdagg.py).
-We provide code for two quantile estimation methods: the wild bootstrap and the parametric bootstrap.
-Our implementation uses the IMQ (inverse multiquadric) kernel with a collection of bandwidths consisting of 
-the median bandwidth scaled by powers of 2, and with one of the four types of weights proposed in 
-[MMD Aggregated Two-Sample Test](https://arxiv.org/pdf/2110.15073.pdf#page=22).
-We also provide `custom` KSDAgg functions in [ksdagg.py](ksdagg.py) which allow for the use of any kernel collections and weights.
+Our aggregated test [KSDAgg](https://arxiv.org/pdf/2202.00824.pdf#page=4) is implemented in [ksdagg.py](ksdagg.py), we provide code below explaining how to use KSDAgg in practice.
+
+Our implementation uses two quantile estimation methods (the wild bootstrap and the parametric bootstrap) with the IMQ (inverse multiquadric) kernel.
+The KSDAgg test aggregates over a collection of bandwidths, and uses one of the four types of weights proposed in [MMD Aggregated Two-Sample Test](https://arxiv.org/pdf/2110.15073.pdf#page=22).
 
 ## Requirements
 - `python 3.9`
@@ -41,10 +39,15 @@ We then recommend creating and activating a virtual environment by either
   # can be deactivated by running:
   # conda deactivate
   ```
-The required packages can then be installed in the virtual environment by running
+The packages required for reproducibility of the experiments can then be installed in the virtual environment by running
 ```
 python -m pip install -r requirements.txt
 ```
+Note that, in order to run the `ksdagg` function from [ksdagg.py](ksdagg.py), only the `numpy` and `scipy` packages are required, those can be installed on their own by instead running
+```
+python -m pip install numpy scipy
+```
+
 ## Generating or downloading the data 
 
 The data for the Gaussian-Bernoulli Restricted Boltzmann Machine experiment
@@ -76,7 +79,7 @@ python experiment_rbm.py
 python experiment_nf.py 
 ```
 Those commands run all the tests necessary for our experiments, the results are saved in dedicated `.csv` and `.pkl` files in the directory [results](results) (which is already provided for ease of use).
-Note that our expeiments are comprised of 'embarrassingly parallel for loops', for which significant speed up can be obtained by using 
+Note that our experiments are comprised of 'embarrassingly parallel for loops', for which significant speed up can be obtained by using 
 parallel computing libraries such as `joblib` or `dask`.
 
 The actual figures of the paper can be obtained from the saved dataframes in [results](results) by using the command 
@@ -84,6 +87,42 @@ The actual figures of the paper can be obtained from the saved dataframes in [re
 python figures.py  
 ```
 The figures are saved in the directory [figures](figures) and correspond to the ones used in our [paper](https://arxiv.org/pdf/2202.00824.pdf).
+
+## Example code for using KSDAgg
+
+```python
+# import modules
+>>> import numpy as np 
+>>> from ksdagg import ksdagg
+
+# generate data
+>>> perturbation = 0.5
+>>> rs = np.random.RandomState(0)
+>>> X = rs.gamma(5 + perturbation, 5, (500, 1))
+>>> score_gamma = lambda x, k, theta : (k - 1) / x - 1 / theta
+>>> score_X = score_gamma(X, 5, 5)
+
+# run KSDAgg test
+>>> output = ksdagg(X, score_X)
+>>> output
+1
+
+# run KSDAgg test with dictionary details
+>>> output, dictionary = ksdagg(X, score_X, return_dictionary=True)
+>>> output
+1
+>>> dictionary
+{'KSDAgg aggregated test reject': True,
+ 'Single test 1': {'Reject': False,
+  'Kernel': 'imq',
+  'Bandwidth': 1.0,
+  'KSD': 131.51170316873277,
+  'KSD quantile': 300.758422752927,
+  'p-value': 0.095952023988006,
+  'p-value threshold': 0.005197401299350267},
+  ...
+}
+```
 
 ## References
 
@@ -112,12 +151,14 @@ Inria London
 ## Bibtex
 
 ```
-@inproceedings{schrab2022ksd,
-  title = {{KSD} {A}ggregated Goodness-of-fit Test},
-  author = {Antonin Schrab and Benjamin Guedj and Arthur Gretton},
-  booktitle = {Advances in Neural Information Processing Systems 35: Annual Conference
-               on Neural Information Processing Systems 2022, NeurIPS 2022},
-  year      = {2022},
+@inproceedings{
+  schrab2022ksd,
+  title={{KSD} Aggregated Goodness-of-fit Test},
+  author={Antonin Schrab and Benjamin Guedj and Arthur Gretton},
+  booktitle={Advances in Neural Information Processing Systems},
+  editor={Alice H. Oh and Alekh Agarwal and Danielle Belgrave and Kyunghyun Cho},
+  year={2022},
+  url={https://openreview.net/forum?id=9-SZkJLkCcB}
 }
 ```
 

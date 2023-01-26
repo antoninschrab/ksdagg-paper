@@ -24,23 +24,30 @@ rc("text", usetex=True)
 # create figures directory if it does not exist
 Path("figures").mkdir(exist_ok=True, parents=True)
 
+
 # Figure 1: Gamma experiment
 results_gamma = pd.read_pickle("results/results_gamma.pkl")
-power = results_gamma.unstack().to_numpy().T[[0, 3, 2, 1], :]
+power = results_gamma.unstack().to_numpy().T
+power_new = np.load("results/ksdagg_gamma.npy")
+power = np.concatenate((power, power_new))
+index = (0, 4, 3, 1, 2)
+power = power[[*index], :]
 names = np.array(
     [
-        r"\textsc{KSDAgg}",
+        r"\textsc{KSDAgg} $\Lambda(0,10)$",
         r"\textsc{KSD} median",
         r"\textsc{KSD} split",
         r"\textsc{KSD} split extra data",
+        r"\textsc{KSDAgg}$^\star$",
     ]
-)[[0, 3, 2, 1]]
-markers = np.array(["o", "*", "^", "v"])[[0, 3, 2, 1]]
-lines = np.array(["-", "--", "-.", ":"])[[0, 3, 2, 1]]
+)[[*index]]
+markers = np.array(["o", "*", "^", "v", "s"])[[*index]]
+lines = np.array(["-", "--", "-.", ":", (5, (10, 3))], dtype=object)[[*index]]
+colors = np.array(['#1f77b4', '#d62728', '#2ca02c', '#ff7f0e', '#9467bd'])[[*index]]
 sigma = [0, 0.1, 0.2, 0.3, 0.4]
 plt.figure(figsize=(6, 4))
-for i in range(4):
-    plt.plot(sigma, power[i], linestyle=lines[i], label=names[i], marker=markers[i])
+for i in range(5):
+    plt.plot(sigma, power[i], linestyle=lines[i], label=names[i], marker=markers[i], color=colors[i])
 plt.legend()
 plt.yticks([0, 0.2, 0.4, 0.6, 0.8, 1])
 plt.ylim(-0.05, 1.05)
@@ -54,7 +61,7 @@ plt.legend(
     labelspacing=0.4,
     columnspacing=0.6,
     loc="lower center",
-    bbox_to_anchor=(0.5, -0.48),
+    bbox_to_anchor=(0.495, -0.57),
 )
 plt.savefig("figures/figure_1.eps", dpi=300, bbox_inches="tight")
 print("Figure 1 has been saved in figures/.")
@@ -62,21 +69,27 @@ print("Figure 1 has been saved in figures/.")
 
 # Figure 2: RBM experiment
 results_rbm = pd.read_pickle("results/results_RBM.pkl")
-power = results_rbm.unstack().to_numpy().T[[0, 3, 2, 1], :]
+power = results_rbm.unstack().to_numpy().T #[[0, 3, 2, 1], :]
+power_new = np.load("results/ksdagg_rbm.npy")
+power = np.concatenate((power, power_new))
+index = (0, 4, 3, 1, 2)
+power = power[[*index], :]
 names = np.array(
     [
-        r"\textsc{KSDAgg}",
+        r"\textsc{KSDAgg} $\Lambda(-20,0)$",
         r"\textsc{KSD} median",
         r"\textsc{KSD} split",
         r"\textsc{KSD} split extra data",
+        r"\textsc{KSDAgg}$^\star$",
     ]
-)[[0, 3, 2, 1]]
-markers = np.array(["o", "*", "^", "v"])[[0, 3, 2, 1]]
-lines = np.array(["-", "--", "-.", ":"])[[0, 3, 2, 1]]
+)[[*index]]
+markers = np.array(["o", "*", "^", "v", "s"])[[*index]]
+lines = np.array(["-", "--", "-.", ":", (5, (10, 3))], dtype=object)[[*index]]
+colors = np.array(['#1f77b4', '#d62728', '#2ca02c', '#ff7f0e', '#9467bd'])[[*index]]
 sigma = [0, 0.01, 0.02, 0.03]
 plt.figure(figsize=(6, 4))
-for i in range(4):
-    plt.plot(sigma, power[i][:4], linestyle=lines[i], label=names[i], marker=markers[i])
+for i in range(5):
+    plt.plot(sigma, power[i][:4], linestyle=lines[i], label=names[i], marker=markers[i], color=colors[i])
 plt.xticks(sigma)
 plt.yticks([0, 0.2, 0.4, 0.6, 0.8, 1])
 plt.ylim(-0.05, 1.05)
@@ -89,7 +102,7 @@ plt.legend(
     labelspacing=0.4,
     columnspacing=0.6,
     loc="lower center",
-    bbox_to_anchor=(0.5, -0.48),
+    bbox_to_anchor=(0.495, -0.57),
 )
 plt.savefig("figures/figure_2.eps", dpi=300, bbox_inches="tight")
 print("Figure 2 has been saved in figures/.")
@@ -103,21 +116,27 @@ print("Table 1 has been saved in figures/.")
 
 # Figure 4: NF experiment power
 results_nf = pd.read_pickle("results/results_NF_MNIST.pkl")
-power = results_nf.loc["power"].unstack().to_numpy().T[[0, 3, 2, 1], :]
+power = results_nf.loc["power"].unstack().to_numpy().T
+power_new = np.load("results/ksdagg_mnist_power.npy")
+power = np.concatenate((power, power_new))
+index = (0, 4, 3, 1, 2)
+power = power[[*index], :]
 names = np.array(
     [
-        r"\textsc{KSDAgg}",
+        r"\textsc{KSDAgg} $\Lambda(-20,0)$",
         r"\textsc{KSD} median",
         r"\textsc{KSD} split",
         r"\textsc{KSD} split extra data",
+        r"\textsc{KSDAgg}$^\star$",
     ]
-)[[0, 3, 2, 1]]
-markers = np.array(["o", "*", "^", "v"])[[0, 3, 2, 1]]
-lines = np.array(["-", "--", "-.", ":"])[[0, 3, 2, 1]]
+)[[*index]]
+markers = np.array(["o", "*", "^", "v", "s"])[[*index]]
+lines = np.array(["-", "--", "-.", ":", (5, (10, 3))], dtype=object)[[*index]]
+colors = np.array(['#1f77b4', '#d62728', '#2ca02c', '#ff7f0e', '#9467bd'])[[*index]]
 samples = [100, 200, 300, 400, 500]
 plt.figure(figsize=(6, 4))
-for i in range(4):
-    plt.plot(samples, power[i], linestyle=lines[i], label=names[i], marker=markers[i])
+for i in range(5):
+    plt.plot(samples, power[i], linestyle=lines[i], label=names[i], marker=markers[i], color=colors[i])
 plt.legend()
 plt.xticks(samples)
 plt.yticks([0, 0.2, 0.4, 0.6, 0.8, 1])
@@ -131,7 +150,7 @@ plt.legend(
     labelspacing=0.4,
     columnspacing=0.6,
     loc="lower center",
-    bbox_to_anchor=(0.5, -0.48),
+    bbox_to_anchor=(0.495, -0.57),
 )
 plt.savefig("figures/figure_4.eps", dpi=300, bbox_inches="tight")
 print("Figure 4 has been saved in figures/.")

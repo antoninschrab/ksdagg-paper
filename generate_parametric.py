@@ -11,6 +11,8 @@ from kernel import compute_ksd, compute_median_bandwidth
 from pathlib import Path
 import numpy as np
 import time
+from ksdagg import create_weights
+import scipy.spatial
 
 
 def generate_parametric(
@@ -28,7 +30,7 @@ def generate_parametric(
     """
     Compute KSD values.
     inputs: X_rep: (r,m,d) array of r repetitions of m d-dimensional samples
-            score_X: (r,m,d) array of score values for X
+            score_X_rep: (r,m,d) array of score values for X
             B: positive integer
             B1: positive integer
             B2: positive integer
@@ -227,17 +229,19 @@ np.save("parametric/RBM/bandwidth" + str(number_samples) + ".npy", median_bandwi
 print("RBM parametric has been saved in parametric/RBM/.")
 
 
-# Normalizing Flow
-print("Starting NF MNIST")
+# Normalizing Flow (load data)
+d = 28 ** 2
+X_rep_all = np.load("data/NF_MNIST/bootstrap/X_mnist_level.npy").reshape(-1, d)
+score_X_rep_all = np.load(
+    "data/NF_MNIST/bootstrap/score_X_mnist_level.npy"
+).reshape(-1, d)
+
+# Normalizing Flow (ksd_aggregated.py)
+print("Starting NF MNIST 1/2")
 for number_samples in [100, 200, 300, 400, 500]:
     l_minus = -20
     l_plus = 0
     rs = np.random.RandomState(0)
-    d = 28**2
-    X_rep_all = np.load("data/NF_MNIST/bootstrap/X_mnist_level.npy").reshape(-1, d)
-    score_X_rep_all = np.load(
-        "data/NF_MNIST/bootstrap/score_X_mnist_level.npy"
-    ).reshape(-1, d)
     B = 500
     B1 = 500
     B2 = 500
@@ -288,3 +292,138 @@ for number_samples in [100, 200, 300, 400, 500]:
         "parametric/NF_MNIST/bandwidth" + str(number_samples) + ".npy", median_bandwidth
     )
 print("NF MNIST parametric has been saved in parametric/NF_MNIST/.")
+
+# Definitions
+
+def generate_parametric_2(
+    X_rep_all,
+    score_X_rep_all,
+    B1,
+    B2,
+    sample_size,
+    bandwidths,
+    kernel="imq",
+    weights_type="uniform", 
+):
+    """
+    Compute KSD values.
+    inputs: X_rep: (r,m,d) array of r repetitions of m d-dimensional samples
+            score_X_rep: (r,m,d) array of score values for X
+            B1: positive integer
+            B2: positive integer
+            sample_size: positive integer
+            kernel_type: "imq"
+            weights_type: "uniform", "centred", "increasing", "decreasing"
+            
+    output: 2-tuple with ordered elements:
+            B1_parametric: (N, B1) array of KSD values computed with m samples for N bandwidths
+            B2_parametric: (N, B2) array of KSD values computed with m samples for N bandwidths
+    """
+    number_bandwidths = len(bandwidths)
+    
+    # B1 & B2 parametric
+    results = []
+    for b in range(B1 + B2):
+        rs = np.random.RandomState(b)
+        indices = rs.choice(X_rep_all.shape[0], size=sample_size, replace=False)
+        X_rep = X_rep_all[indices]
+        score_X_rep = score_X_rep_all[indices]
+        X = X_rep
+        score_X = score_X_rep
+        results.append(
+            compute_ksd_2(
+                X,
+                score_X,
+                bandwidths,
+            )
+        )
+    
+    B1_parametric = np.zeros((B1, number_bandwidths))
+    for b in range(B1):
+        B1_parametric[b] = results[b]
+    B1_parametric = B1_parametric.T
+    
+    B2_parametric = np.zeros((B2, number_bandwidths))
+    for b in range(B2):
+        B2_parametric[b] = results[B1 + b]
+    B2_parametric = B2_parametric.T
+    
+    return (
+        B1_parametric,
+        B2_parametric,
+    )
+
+
+def compute_ksd_2(X, score_X, bandwidths, weights_type="uniform"):
+    m = X.shape[0]
+    number_bandwidths = len(bandwidths)
+    weights = create_weights(number_bandwidths, weights_type)
+    beta_imq = 0.5
+    p = X.shape[1]
+    norms = np.sum(X ** 2, -1)
+    dists = -2 * X @ X.T + np.expand_dims(norms, 1) + np.expand_dims(norms, 0)
+    diffs = np.expand_dims(np.sum(X * score_X, -1), 1) - (X @ score_X.T)
+    diffs = diffs + diffs.T
+    KSD_original = np.zeros((number_bandwidths, ))
+    for i in range(number_bandwidths):
+        bandwidth = bandwidths[i]
+        g = 1 / bandwidth ** 2
+        res = 1 + g * dists
+        kxy = res ** (-beta_imq)
+        dkxy = 2 * beta_imq * g * (res) ** (-beta_imq - 1) * diffs
+        d2kxy = 2 * (
+            beta_imq * g * (res) ** (-beta_imq - 1) * p
+            - 2
+            * beta_imq
+            * (beta_imq + 1)
+            * g ** 2
+            * dists
+            * res ** (-beta_imq - 2)
+        )
+        H = score_X @ score_X.T * kxy + dkxy + d2kxy
+        np.fill_diagonal(H, 0)
+        r = np.ones(m)
+        KSD_original[i] = r @ H @ r
+    return KSD_original
+
+# Normalizing Flow (ksdagg.py)
+print("Starting NF MNIST 2/2")
+max_samples = 500
+distances = scipy.spatial.distance.pdist(X_rep_all[:max_samples], "euclidean")  
+distances = distances[distances > 0]
+lambda_min = 1 
+lambda_max = np.maximum(np.max(distances), 2)
+number_bandwidths = 10
+power = (lambda_max / lambda_min) ** (1 / (number_bandwidths - 1))
+bandwidths = np.array([power ** i * lambda_min / X_rep_all.shape[1] for i in range(number_bandwidths)])
+np.save(
+    "parametric/NF_MNIST/bandwidths_ksdagg.npy",
+    bandwidths,
+)
+for sample_size in [100, 200, 300, 400, 500]:
+    B1 = 500
+    B2 = 500
+    (
+        B1_parametric,
+        B2_parametric,
+    ) = generate_parametric_2(
+    X_rep_all,
+    score_X_rep_all,
+    B1,
+    B2,
+    sample_size,
+    bandwidths,
+    kernel="imq",
+    weights_type="uniform", 
+)
+
+    np.save(
+        "parametric/NF_MNIST/B1_parametric_ksdagg_" + str(sample_size) + ".npy",
+        B1_parametric,
+    )
+    np.save(
+        "parametric/NF_MNIST/B2_parametric_ksdagg_" + str(sample_size) + ".npy",
+        B2_parametric,
+    )
+print("NF MNIST parametric has been saved in parametric/NF_MNIST/.")
+

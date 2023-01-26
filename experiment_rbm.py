@@ -10,7 +10,8 @@ Results are saved as dataframes in the directory results/.
 
 from kernel import stein_kernel_matrices, ratio_ksd_stdev
 from ksd_single import ksd_parametric
-from ksdagg import ksdagg_parametric
+from ksd_aggregated import ksdagg_parametric
+from ksdagg import ksdagg
 from pathlib import Path
 import numpy as np
 import pandas as pd
@@ -48,6 +49,7 @@ l_plus = 0
 alpha = 0.05
 number_samples = 1000
 repetitions = 200
+ksdagg_power = np.zeros(len(filenames))
 for f in range(len(filenames)):
     filename = filenames[f]
     rs = np.random.RandomState(0)
@@ -67,8 +69,10 @@ for f in range(len(filenames)):
         "parametric/RBM/bandwidth" + str(number_samples) + ".npy"
     )
     if verbose:
+        print(" ")
         print("Starting f =", f + 1, "/", len(filenames))
         print("bandwidth", median_bandwidth)
+    ksdagg_param_results = np.zeros(repetitions)
     ksdagg_results = np.zeros(repetitions)
     median_results = np.zeros(repetitions)
     split_results = np.zeros(repetitions)
@@ -81,7 +85,21 @@ for f in range(len(filenames)):
         score_X_extra = score_X_rep[indices + 1]
 
         # KSDAgg
-        ksdagg_results[r] = ksdagg_parametric(
+        ksdagg_results[r] = ksdagg(
+            X, 
+            score_X,
+            kernel="imq",
+            number_bandwidths=10,
+            weights_type="uniform", 
+            approx_type="wild bootstrap",
+            B1=2000, 
+            B2=2000, 
+            B3=50,
+            seed=42,
+        )
+        
+        # KSDAgg parametric
+        ksdagg_param_results[r] = ksdagg_parametric(
             X,
             score_X,
             alpha,
@@ -168,11 +186,12 @@ for f in range(len(filenames)):
             )
             t = time.time()
     power_level = (
-        np.mean(ksdagg_results),
+        np.mean(ksdagg_param_results),
         np.mean(median_results),
         np.mean(split_results),
         np.mean(split_extra_data_results),
     )
+    ksdagg_power[f] = np.mean(ksdagg_results)
     if verbose:
         for i in range(len(power_level)):
             print(f, test_names[i], power_level[i])
@@ -190,6 +209,9 @@ index = pd.MultiIndex.from_tuples(index_vals, names=index_names)
 results_df = pd.Series(results, index=index).to_frame("power/level")
 results_df.reset_index().to_csv("results/results_RBM.csv")
 results_df.to_pickle("results/results_RBM.pkl")
+
+# save numpy array
+np.save("results/ksdagg_rbm.npy", ksdagg_power.reshape(1, -1))
 
 if verbose:
     print("Dataframes for RBM experiment have been saved in results/.")

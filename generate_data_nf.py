@@ -66,7 +66,9 @@ import urllib.request
 from urllib.error import HTTPError
 
 # Github URL where saved models are stored for this tutorial
-base_url = "https://raw.githubusercontent.com/phlippe/saved_models/main/tutorial11/"
+# base_url = "https://raw.githubusercontent.com/phlippe/saved_models/main/tutorial11/"
+# Need old commit version of MNISTFlow_multiscale.ckpt
+base_url = "https://raw.githubusercontent.com/phlippe/saved_models/8b7421c5f54e591ffe29e76181cdebfd6a816b6c/tutorial11/"
 # Files to download
 pretrained_files = ["MNISTFlow_multiscale.ckpt"]
 # Create checkpoint path if it doesn't exist yet
@@ -648,8 +650,8 @@ def sample_NF_grad_NF(seed):
     log_px.backward()
     grad_log_px = samples.grad
     return samples.cpu().detach().numpy().reshape(
-        1, 28**2
-    ), grad_log_px.cpu().detach().numpy().reshape(1, 28**2)
+        1, 28 ** 2
+    ), grad_log_px.cpu().detach().numpy().reshape(1, 28 ** 2)
 
 
 def sample_MNIST_grad_NF(seed):
@@ -673,8 +675,8 @@ def sample_MNIST_grad_NF(seed):
     log_px.backward()
     grad_log_px = samples.grad
     return samples.cpu().detach().numpy().reshape(
-        1, 28**2
-    ), grad_log_px.cpu().detach().numpy().reshape(1, 28**2)
+        1, 28 ** 2
+    ), grad_log_px.cpu().detach().numpy().reshape(1, 28 ** 2)
 
 
 if __name__ == "__main__":
@@ -689,10 +691,10 @@ if __name__ == "__main__":
     for j in range(len(L)):
         directory, repetitions, m = L[j]
         Path("data/NF_MNIST/" + directory).mkdir(exist_ok=True, parents=True)
-        X_level = np.empty((repetitions, m, 28**2))
-        score_X_level = np.empty((repetitions, m, 28**2))
-        X_power = np.empty((repetitions, m, 28**2))
-        score_X_power = np.empty((repetitions, m, 28**2))
+        X_level = np.empty((repetitions, m, 28 ** 2))
+        score_X_level = np.empty((repetitions, m, 28 ** 2))
+        X_power = np.empty((repetitions, m, 28 ** 2))
+        score_X_power = np.empty((repetitions, m, 28 ** 2))
         for r in range(repetitions):
             t = time.time()
             for i in range(m):

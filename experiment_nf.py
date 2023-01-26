@@ -10,7 +10,8 @@ Results are saved as dataframes in the directory results/.
 
 from kernel import stein_kernel_matrices, ratio_ksd_stdev
 from ksd_single import ksd_parametric
-from ksdagg import ksdagg_parametric
+from ksd_aggregated import ksdagg_parametric
+from ksdagg import ksdagg
 from pathlib import Path
 import numpy as np
 import pandas as pd
@@ -33,7 +34,7 @@ test_names = (
 
 filenames = ["mnist_power", "mnist_level"]
 
-# run all the experiments
+# Computations (ksd_aggregated.py)
 t = time.time()
 verbose = True
 weights_type = "uniform"
@@ -205,6 +206,66 @@ index = pd.MultiIndex.from_tuples(index_vals, names=index_names)
 results_df = pd.Series(results, index=index).to_frame("power/level")
 results_df.reset_index().to_csv("results/results_NF_MNIST.csv")
 results_df.to_pickle("results/results_NF_MNIST.pkl")
+
+# Computations (ksdagg.py) 
+filenames = ["mnist_level", "mnist_power"]
+repetitions = 200
+for number_samples in [100, 200, 300, 400, 500]:
+    for f in range(len(filenames)):
+        filename = filenames[f]
+        if verbose:
+            print(" ")
+            print(filename)
+            print(number_samples)
+        rs = np.random.RandomState(0)
+        X_rep = np.load("data/NF_MNIST/testing/X_" + filename + ".npy").reshape(-1, 28 ** 2)
+        score_X_rep = np.load(
+            "data/NF_MNIST/testing/score_X_" + filename + ".npy"
+        ).reshape(-1, 28 ** 2)
+        B1_parametric = np.load(
+            "parametric/NF_MNIST/B1_parametric_ksdagg_" + str(number_samples) + ".npy"
+        )
+        B2_parametric = np.load(
+            "parametric/NF_MNIST/B2_parametric_ksdagg_" + str(number_samples) + ".npy"
+        )
+        bandwidths = np.load("parametric/NF_MNIST/bandwidths_ksdagg.npy")
+        if verbose:
+            print(
+                "Starting n =",
+                int(number_samples / 100),
+                "/ 5 , f =",
+                f + 1,
+                "/",
+                len(filenames),
+            )
+        ksdagg_results = []
+        for r in range(repetitions):
+            indices = rs.choice(X_rep.shape[0] - 1, size=number_samples, replace=False)
+            X = X_rep[indices]
+            score_X = score_X_rep[indices]
+
+            # KSDAgg
+            ksdagg_results.append(
+                ksdagg(
+                    X,
+                    score_X,
+                    bandwidths=bandwidths,
+                    alpha=0.05,
+                    kernel="imq",
+                    weights_type="uniform", 
+                    approx_type="parametric",
+                    B1=B1_parametric,
+                    B2=B2_parametric,
+                    B3=50,
+                    seed=42,
+                    return_dictionary=False,
+                )
+            )
+            
+        power = np.mean(ksdagg_results)
+        if verbose:
+            print(power)
+        np.save("results/ksdagg_" + filename + ".npy", power.reshape(1, -1))
 
 if verbose:
     print("Dataframes for NF MNIST experiment have been saved in results/.")

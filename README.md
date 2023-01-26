@@ -1,4 +1,4 @@
-Code for KSDAgg: KSD Aggregated Goodness-of-fit Test
+# Code for KSDAgg: KSD Aggregated Goodness-of-fit Test
 
 This GitHub repository contains the code for the reproducible experiments presented in our paper 
 [KSD Aggregated Goodness-of-fit Test](https://arxiv.org/pdf/2202.00824.pdf):

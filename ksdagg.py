@@ -244,7 +244,7 @@ def ksdagg(
 
     ksd_vals = KSD_original
     quantiles = quantiles.reshape(-1)
-    # reject if ksd_val <= quantile
+    # reject if ksd_val > quantile
     reject_ksd_vals = ksd_vals > quantiles
 
     # assert both rejection methods are equivalent

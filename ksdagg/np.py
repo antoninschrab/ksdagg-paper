@@ -1,6 +1,9 @@
 """
-Functions for computing KSDAgg test for a collection of kernels
-using either a wild bootstrap or a parametic bootstrap.
+Numpy implementation
+This file implements our KSDAgg test in the function ksdagg().
+For details, see our paper:
+KSD Aggregated Goodness-of-fit Test
+Antonin Schrab, Benjamin Guedj, Arthur Gretton
 """
 
 import numpy as np
@@ -92,22 +95,23 @@ def ksdagg(
     >>> score_gamma = lambda x, k, theta : (k - 1) / x - 1 / theta
     >>> score_X = score_gamma(X, 5, 5)
     >>> output = ksdagg(X, score_X)
+    >>> output
+    1
     >>> output, dictionary = ksdagg(X, score_X, return_dictionary=True)
     >>> output
     1
     >>> dictionary
-    {'KSDAgg aggregated test reject': True,
+    {'KSDAgg test reject': True,
      'Single test 1': {'Reject': False,
-      'Kernel': 'imq',
+      'Kernel IMQ': True,
       'Bandwidth': 1.0,
-      'KSD': 131.51170316873277,
-      'KSD quantile': 300.758422752927,
-      'p-value': 0.095952023988006,
-      'p-value threshold': 0.005197401299350267},
+      'KSD': 5.793191619260622e-05,
+      'KSD quantile': 0.001004603595590035,
+      'p-value': 0.4077961019490255,
+      'p-value threshold': 0.011994002998500619},
       ...
     }
     """
-
     # Assertions
     m = X.shape[0]
     assert m >= 2 and X.shape == score_X.shape
@@ -177,7 +181,7 @@ def ksdagg(
             )
             H = score_X @ score_X.T * kxy + dkxy + d2kxy
             np.fill_diagonal(H, 0)
-            M[i] = np.sum(R * (H @ R), 0) # (B1+B2+1, ) wild bootstrap KSD estimates
+            M[i] = np.sum(R * (H @ R), 0) / (m * (m - 1)) # (B1+B2+1, ) wild bootstrap KSD estimates
         KSD_original = M[:, B1]
         M1_sorted = np.sort(M[:, :B1 + 1])  # (number_bandwidths, B1+1)
         M2 = M[:, B1 + 1:]  # (number_bandwidths, B2)
@@ -208,7 +212,7 @@ def ksdagg(
             H = score_X @ score_X.T * kxy + dkxy + d2kxy
             np.fill_diagonal(H, 0)
             r = np.ones(m)
-            KSD_original[i] = r @ H @ r
+            KSD_original[i] = r @ H @ r  / (m * (m - 1))
         M1 = np.concatenate((B1_parametric, KSD_original.reshape(-1, 1)), axis=1) # (number_bandwidths, B1+1)
         M1_sorted = np.sort(M1)  # (number_bandwidths, B1+1)
         M2 = B2_parametric  # (number_bandwidths, B2)
@@ -252,27 +256,27 @@ def ksdagg(
 
     # create rejection dictionary 
     reject_dictionary = {}
-    reject_dictionary["KSDAgg aggregated test reject"] = False
+    reject_dictionary["KSDAgg test reject"] = False
     for i in range(number_bandwidths):
         index = "Single test " + str(i + 1)
         reject_dictionary[index] = {}
         reject_dictionary[index]["Reject"] = reject_p_vals[i]
-        reject_dictionary[index]["Kernel"] = kernel
+        reject_dictionary[index]["Kernel IMQ"] = True
         reject_dictionary[index]["Bandwidth"] = bandwidths[i]
         reject_dictionary[index]["KSD"] = ksd_vals[i]
         reject_dictionary[index]["KSD quantile"] = quantiles[i]
         reject_dictionary[index]["p-value"] = p_vals[i]
         reject_dictionary[index]["p-value threshold"] = thresholds[i]
         # Aggregated test rejects if one single test rejects
-        reject_dictionary["KSDAgg aggregated test reject"] = any((
-            reject_dictionary["KSDAgg aggregated test reject"], 
+        reject_dictionary["KSDAgg test reject"] = any((
+            reject_dictionary["KSDAgg test reject"], 
             reject_p_vals[i]
         ))
 
     if return_dictionary:
-        return int(reject_dictionary["KSDAgg aggregated test reject"]), reject_dictionary
+        return int(reject_dictionary["KSDAgg test reject"]), reject_dictionary
     else:
-        return int(reject_dictionary["KSDAgg aggregated test reject"])
+        return int(reject_dictionary["KSDAgg test reject"])
 
 
 def create_weights(N, weights_type):

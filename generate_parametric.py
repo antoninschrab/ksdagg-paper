@@ -383,7 +383,7 @@ def compute_ksd_2(X, score_X, bandwidths, weights_type="uniform"):
         H = score_X @ score_X.T * kxy + dkxy + d2kxy
         np.fill_diagonal(H, 0)
         r = np.ones(m)
-        KSD_original[i] = r @ H @ r
+        KSD_original[i] = r @ H @ r  / (m * (m - 1))
     return KSD_original
 
 # Normalizing Flow (ksdagg.py)

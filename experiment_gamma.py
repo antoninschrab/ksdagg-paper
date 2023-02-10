@@ -11,7 +11,7 @@ Results are saved as dataframes in the directory results/.
 from kernel import stein_kernel_matrices, ratio_ksd_stdev
 from ksd_single import ksd_parametric
 from ksd_aggregated import ksdagg_parametric
-from ksdagg import ksdagg
+from ksdagg.np import ksdagg
 from pathlib import Path
 import numpy as np
 import pandas as pd

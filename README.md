@@ -1,4 +1,4 @@
-# Code for KSDAgg: KSD Aggregated Goodness-of-fit Test
+# Reproducibility code for KSDAgg: KSD Aggregated Goodness-of-fit Test
 
 This GitHub repository contains the code for the reproducible experiments presented in our paper 
 [KSD Aggregated Goodness-of-fit Test](https://arxiv.org/pdf/2202.00824.pdf):
@@ -9,13 +9,17 @@ This GitHub repository contains the code for the reproducible experiments presen
 We provide the code to run the experiments to generate Figures 1-4 and Table 1 from our paper, 
 those can be found in [figures](figures). 
 
-Our aggregated test [KSDAgg](https://arxiv.org/pdf/2202.00824.pdf#page=4) is implemented in [ksdagg.py](ksdagg.py), we provide code below explaining how to use KSDAgg in practice.
+To use our KSDAgg test in practice, we recommend using our `ksdagg` package, more details available on the [ksdagg](https://github.com/antoninschrab/ksdagg) repository.
 
 Our implementation uses two quantile estimation methods (the wild bootstrap and the parametric bootstrap) with the IMQ (inverse multiquadric) kernel.
 The KSDAgg test aggregates over a collection of bandwidths, and uses one of the four types of weights proposed in [MMD Aggregated Two-Sample Test](https://arxiv.org/pdf/2110.15073.pdf#page=22).
 
 ## Requirements
 - `python 3.9`
+
+The packages in [requirements.txt](requirements.txt) are required to run our tests and the ones we compare against. 
+
+Additionally, the `jax` and `jaxlib` packages are required to run the Jax implementation of KSDAgg in [ksdagg/jax.py](ksdagg/jax.py).
 
 ## Installation
 
@@ -43,10 +47,16 @@ The packages required for reproducibility of the experiments can then be install
 ```
 python -m pip install -r requirements.txt
 ```
-Note that, in order to run the `ksdagg` function from [ksdagg.py](ksdagg.py), only the `numpy` and `scipy` packages are required, those can be installed on their own by instead running
-```
-python -m pip install numpy scipy
-```
+
+For using the Jax implementation of our tests, Jax needs to be installed, for which we recommend using `conda`. This can be done by running
+- for GPU:
+  ```bash
+  conda install -c conda-forge -c nvidia pip cuda-nvcc "jaxlib=0.4.1=*cuda*" jax
+  ```
+- or, for CPU:
+  ```bash
+  conda install -c conda-forge -c nvidia pip jaxlib=0.4.1 jax
+  ```
 
 ## Generating or downloading the data 
 
@@ -88,45 +98,31 @@ python figures.py
 ```
 The figures are saved in the directory [figures](figures) and correspond to the ones used in our [paper](https://arxiv.org/pdf/2202.00824.pdf).
 
-## Example code for using KSDAgg
+## How to use KSDAgg in practice?
 
-```python
-# import modules
->>> import numpy as np 
->>> from ksdagg import ksdagg
+The KSDAgg test is implemented as the function `ksdagg` in [ksdagg/np.py](ksdagg/np.py) for the Numpy version and in [ksdagg/jax.py](ksdagg/jax.py) for the Jax version.
 
-# generate data
->>> perturbation = 0.5
->>> rs = np.random.RandomState(0)
->>> X = rs.gamma(5 + perturbation, 5, (500, 1))
->>> score_gamma = lambda x, k, theta : (k - 1) / x - 1 / theta
->>> score_X = score_gamma(X, 5, 5)
+For the Numpy implementation of our KSDAgg test, we only require the `numpy` and `scipy` packages.
 
-# run KSDAgg test
->>> output = ksdagg(X, score_X)
->>> output
-1
+For the Jax implementation of our KSDAgg test, we only require the `jax` and `jaxlib` packages.
 
-# run KSDAgg test with dictionary details
->>> output, dictionary = ksdagg(X, score_X, return_dictionary=True)
->>> output
-1
->>> dictionary
-{'KSDAgg aggregated test reject': True,
- 'Single test 1': {'Reject': False,
-  'Kernel': 'imq',
-  'Bandwidth': 1.0,
-  'KSD': 131.51170316873277,
-  'KSD quantile': 300.758422752927,
-  'p-value': 0.095952023988006,
-  'p-value threshold': 0.005197401299350267},
-  ...
-}
+To use our tests in practice, we recommend using our `ksdagg` package which is available on the [ksdagg](https://github.com/antoninschrab/ksdagg) repository. It can be installed by running
+```bash
+pip install git+https://github.com/antoninschrab/ksdagg.git
 ```
+Installation instructions and example code are available on the [ksdagg](https://github.com/antoninschrab/ksdagg) repository. 
+
+We also provide some code showing how to use our KSDAgg test in the [demo_speed.ipynb](demo_speed.ipynb) notebook which also contains speed comparisons between the Jax and Numpy implementations, as reported below.
+
+| Speed in ms | Numpy (CPU) | Jax (CPU) | Jax (GPU) | 
+| -- | -- | -- | -- |
+| KSDAgg | 12500 | 1470 | 22 | 
+
+In practice, we recommend using the Jax implementation as it runs considerably faster (more than 500 times faster in the above table, see notebook [demo_speed.ipynb](demo_speed.ipynb)).
 
 ## References
 
-Our KSDAgg code is based our MMDAgg implementation which can be found at [https://github.com/antoninschrab/mmdagg-paper](https://github.com/antoninschrab/mmdagg-paper).
+Our KSDAgg code is based on our MMDAgg implementation for two-sample testing ([MMD Aggregated Two-Sample Test](https://arxiv.org/pdf/2110.15073.pdf)) which can be found at [https://github.com/antoninschrab/mmdagg-paper](https://github.com/antoninschrab/mmdagg-paper).
 
 For the Gaussian-Bernoulli Restricted Boltzmann Machine experiment, we obtain the samples and scores in [generate_data_rbm.py](generate_data_rbm.py) by relying on [Wittawat Jitkrittum](https://github.com/wittawatj)'s implementation which can be found at [https://github.com/wittawatj/kernel-gof](https://github.com/wittawatj/kernel-gof) under the MIT License. The relevant files we use are in the directory [kgof](kgof).
 
@@ -136,11 +132,13 @@ under the MIT License.
 
 ## KSDAggInc
 
-For a computationally efficient version of KSDAgg which can run in linear time, check out our paper [Efficient Aggregated Kernel Tests using Incomplete U-statistics](https://arxiv.org/pdf/2206.09194.pdf) and its implementation available on the [agginc-paper](https://github.com/antoninschrab/agginc-paper) repository.
+For a computationally efficient version of KSDAgg which can run in linear time, check out our paper [Efficient Aggregated Kernel Tests using Incomplete U-statistics](https://arxiv.org/pdf/2206.09194.pdf) with reproducible experiments in the [agginc-paper](https://github.com/antoninschrab/agginc-paper) repository and a package in in the [agginc](https://github.com/antoninschrab/agginc) repository.
 
-## Author
+## Contact
 
-[Antonin Schrab](https://antoninschrab.github.io)
+If you have any issues running our code, please do not hesitate to contact [Antonin Schrab](https://antoninschrab.github.io).
+
+## Affiliations
 
 Centre for Artificial Intelligence, Department of Computer Science, University College London
 
@@ -151,17 +149,16 @@ Inria London
 ## Bibtex
 
 ```
-@inproceedings{
-  schrab2022ksd,
-  title={{KSD} Aggregated Goodness-of-fit Test},
-  author={Antonin Schrab and Benjamin Guedj and Arthur Gretton},
-  booktitle={Advances in Neural Information Processing Systems},
-  editor={Alice H. Oh and Alekh Agarwal and Danielle Belgrave and Kyunghyun Cho},
-  year={2022},
-  url={https://openreview.net/forum?id=9-SZkJLkCcB}
+@inproceedings{schrab2022ksd,
+  author    = {Antonin Schrab and Benjamin Guedj and Arthur Gretton},
+  title     = {KSD Aggregated Goodness-of-fit Test},
+  booktitle = {Advances in Neural Information Processing Systems 35: Annual Conference
+               on Neural Information Processing Systems 2022, NeurIPS 2022},
+  editor    = {Alice H. Oh and Alekh Agarwal and Danielle Belgrave and Kyunghyun Cho},
+  year      = {2022},
 }
 ```
 
 ## License
 
-MIT License (see [LICENSE.md](LICENSE.md))
+MIT License (see [LICENSE.md](LICENSE.md)).
